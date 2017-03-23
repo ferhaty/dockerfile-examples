@@ -1,0 +1,65 @@
+version: "3"
+services:
+    varnish:
+        build: ./docker/varnish/
+        ports:
+            - "80:80"
+        volumes:
+            - ./docker/varnish/config/default.vcl:/etc/varnish/default.vcl
+        links:
+            - web:web
+        networks:
+            - delivery
+    web:
+        image: nginx:1.11-alpine
+        ports:
+            - "8080:80"
+        volumes:
+            - ./docker/nginx/site.conf:/etc/nginx/conf.d/default.conf
+            - ./app:/code
+        networks:
+            - delivery
+    php:
+        image: php:7.1-fpm-alpine
+        volumes:
+            - ./app/:/code
+        networks:
+            - delivery
+    rabbit:
+        image: rabbitmq:3.6-management-alpine
+        hostname: rabbit
+        environment:
+            RABBITMQ_ERLANG_COOKIE: "BUMJFbu7qwktFHcvNgw6CvLc"
+            RABBITMQ_DEFAULT_USER: "lol"
+            RABBITMQ_DEFAULT_PASS: "lol"
+            RABBITMQ_DEFAULT_VHOST: "/"
+        ports:
+            - "15672:15672"
+            - "5672:5672"
+        networks:
+            - delivery
+    elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:5.2.2
+        container_name: elasticsearch
+        environment:
+          - bootstrap.memory_lock=true
+          - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+            nofile:
+                soft: 65536
+                hard: 65536
+        cap_add:
+          - IPC_LOCK
+        volumes:
+          - ./data/es_data:/usr/share/elasticsearch/data
+        ports:
+          - 9200:9200
+        networks:
+            - delivery
+
+networks:
+    delivery:
+        driver: bridge
